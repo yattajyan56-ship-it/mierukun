@@ -518,44 +518,79 @@ function exportGif(){
       var rgbaA=getRGBA(imgA);
       var rgbaB=getRGBA(imgB);
 
-      // 256色パレット生成（メディアンカット簡易版 → 固定ウェブセーフ palette）
-      function buildPalette(rgba){
-        var map={};var pal=[];
-        for(var i=0;i<rgba.length;i+=4){
-          var r=rgba[i]&0xf8,g=rgba[i+1]&0xf8,b=rgba[i+2]&0xf8;
-          var key=(r<<16)|(g<<8)|b;
-          if(!map[key]){if(pal.length<256){map[key]=pal.length;pal.push([r,g,b]);}else{map[key]=findNearest(pal,r,g,b);}}
+      // メディアンカット法で256色パレット生成
+      function medianCut(rgba,maxColors){
+        // ピクセル配列を作る（サンプリングして高速化）
+        var pixels=[];
+        var step=Math.max(1,Math.floor(rgba.length/4/4000)); // 最大4000サンプル
+        for(var i=0;i<rgba.length;i+=4*step){
+          pixels.push([rgba[i],rgba[i+1],rgba[i+2]]);
         }
-        while(pal.length<256)pal.push([0,0,0]);
-        return{pal:pal,map:map};
+        // 再帰的に分割
+        function cut(pixels,depth){
+          if(depth===0||pixels.length===0){
+            // このバケツの平均色を返す
+            var r=0,g=0,b=0;
+            for(var i=0;i<pixels.length;i++){r+=pixels[i][0];g+=pixels[i][1];b+=pixels[i][2];}
+            var n=pixels.length||1;
+            return[[Math.round(r/n),Math.round(g/n),Math.round(b/n)]];
+          }
+          // 最もレンジが広いチャンネルで分割
+          var minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+          for(var i=0;i<pixels.length;i++){
+            if(pixels[i][0]<minR)minR=pixels[i][0];if(pixels[i][0]>maxR)maxR=pixels[i][0];
+            if(pixels[i][1]<minG)minG=pixels[i][1];if(pixels[i][1]>maxG)maxG=pixels[i][1];
+            if(pixels[i][2]<minB)minB=pixels[i][2];if(pixels[i][2]>maxB)maxB=pixels[i][2];
+          }
+          var rR=maxR-minR,rG=maxG-minG,rB=maxB-minB;
+          var ch=rR>=rG&&rR>=rB?0:rG>=rB?1:2;
+          pixels.sort(function(a,b){return a[ch]-b[ch];});
+          var mid=Math.floor(pixels.length/2);
+          return cut(pixels.slice(0,mid),depth-1).concat(cut(pixels.slice(mid),depth-1));
+        }
+        var depth=Math.ceil(Math.log2(maxColors));
+        return cut(pixels,depth);
       }
+
       function findNearest(pal,r,g,b){
         var best=0,bestD=1e9;
-        for(var i=0;i<pal.length;i++){var dr=pal[i][0]-r,dg=pal[i][1]-g,db=pal[i][2]-b;var d=dr*dr+dg*dg+db*db;if(d<bestD){bestD=d;best=i;}}
+        for(var i=0;i<pal.length;i++){
+          var dr=pal[i][0]-r,dg=pal[i][1]-g,db=pal[i][2]-b;
+          var d=dr*dr+dg*dg+db*db;
+          if(d<bestD){bestD=d;best=i;}
+        }
         return best;
       }
-      function quantize(rgba,palette){
+
+      function quantize(rgba,pal){
         var idx=new Uint8Array(W*H);
+        // 近傍キャッシュ
+        var cache={};
         for(var i=0,p=0;i<rgba.length;i+=4,p++){
-          var r=rgba[i]&0xf8,g=rgba[i+1]&0xf8,b=rgba[i+2]&0xf8;
-          var key=(r<<16)|(g<<8)|b;
-          idx[p]=(palette.map[key]!==undefined)?palette.map[key]:findNearest(palette.pal,r,g,b);
+          var r=rgba[i],g=rgba[i+1],b=rgba[i+2];
+          // 5bit丸めでキャッシュキーを作る（速度優先）
+          var key=((r>>3)<<10)|((g>>3)<<5)|(b>>3);
+          if(cache[key]===undefined)cache[key]=findNearest(pal,r,g,b);
+          idx[p]=cache[key];
         }
         return idx;
       }
 
-      // build shared palette from both frames
+      // 両フレーム合わせてパレット生成
       var combined=new Uint8Array(rgbaA.length+rgbaB.length);
       combined.set(rgbaA);combined.set(rgbaB,rgbaA.length);
       statusEl.textContent='パレット生成中...';
-      var palette=buildPalette(combined);
-      var idxA=quantize(rgbaA,palette);
-      var idxB=quantize(rgbaB,palette);
+      var pal=medianCut(combined,256);
+      while(pal.length<256)pal.push([0,0,0]);
+      pal=pal.slice(0,256);
+
+      statusEl.textContent='フレームをインデックス化中...';
+      var idxA=quantize(rgbaA,pal);
+      var idxB=quantize(rgbaB,pal);
 
       statusEl.textContent='フレームをエンコード中...';
-      var delay=intervalMs; // ms → gif uses 1/100s internally below
-
-      var bytes=encodeGIF(W,H,palette.pal,[idxA,idxB],delay);
+      var delay=intervalMs;
+      var bytes=encodeGIF(W,H,pal,[idxA,idxB],delay);
       var blob=new Blob([bytes],{type:'image/gif'});
       var url=URL.createObjectURL(blob);
       var a=document.createElement('a');
