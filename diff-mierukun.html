@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>差分見えるくん</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e0e10;
+  --surface: #18181c;
+  --surface2: #22222a;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #f0f0f0;
+  --text-muted: #888;
+  --text-dim: #555;
+  --accent: #c8ff00;
+  --accent-dim: rgba(200,255,0,0.12);
+  --accent-dim2: rgba(200,255,0,0.06);
+  --del-bg: rgba(255,80,80,0.18);
+  --del-text: #ff9090;
+  --ins-bg: rgba(120,255,120,0.15);
+  --ins-text: #90ff90;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Zen Kaku Gothic New',sans-serif}
+
+/* BG texture */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 0%, rgba(200,255,0,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 85% 100%, rgba(100,100,255,0.05) 0%, transparent 70%);
+  z-index:0;
+}
+
+.container{max-width:960px;margin:0 auto;padding:48px 24px 120px;position:relative;z-index:1}
+
+/* HEADER */
+header{margin-bottom:48px}
+.logo-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+.logo{font-size:32px;font-weight:900;letter-spacing:-1px;color:var(--text)}
+.logo span{color:var(--accent)}
+.tagline{font-size:13px;color:var(--text-muted);letter-spacing:0.5px}
+.badge-row{display:flex;gap:8px;margin-top:12px}
+.badge{font-size:11px;padding:3px 10px;border-radius:99px;border:1px solid var(--border2);color:var(--text-muted);letter-spacing:0.3px}
+
+/* TABS */
+.tab-bar{display:flex;gap:4px;margin-bottom:28px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px;width:fit-content}
+.tab{padding:8px 24px;font-size:14px;font-weight:500;font-family:'Zen Kaku Gothic New',sans-serif;cursor:pointer;border:none;background:none;color:var(--text-muted);border-radius:var(--radius-sm);transition:all .2s;letter-spacing:0.2px}
+.tab.active{background:var(--accent);color:#0e0e10;font-weight:700}
+.tab:hover:not(.active){color:var(--text);background:var(--surface2)}
+
+/* PANELS */
+.panel{display:none;animation:fadeIn .2s ease}
+.panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* TEXT PANEL */
+.editors{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.editor-wrap{display:flex;flex-direction:column;gap:8px}
+.editor-label{font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase}
+.editor-label .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.dot-before{background:#ff6060}
+.dot-after{background:var(--accent)}
+textarea{
+  width:100%;height:280px;resize:vertical;
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;
+  font-size:13px;font-family:'JetBrains Mono',monospace;
+  background:var(--surface);color:var(--text);
+  line-height:1.7;
+  transition:border-color .2s;
+  outline:none;
+}
+textarea:focus{border-color:var(--border2)}
+textarea::placeholder{color:var(--text-dim)}
+
+/* DIFF RESULT */
+.diff-summary{display:flex;gap:16px;margin-bottom:10px;font-size:12px}
+.sum-add{color:var(--ins-text)}.sum-del{color:var(--del-text)}
+.diff-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.diff-col-head{font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px}
+.diff-box{
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;min-height:60px;
+  font-size:13px;font-family:'JetBrains Mono',monospace;
+  background:var(--surface);line-height:1.9;
+  white-space:pre-wrap;word-break:break-all;color:var(--text);
+}
+.diff-box .del{background:var(--del-bg);color:var(--del-text);border-radius:3px;padding:0 2px}
+.diff-box .ins{background:var(--ins-bg);color:var(--ins-text);border-radius:3px;padding:0 2px}
+.no-diff{font-size:13px;color:var(--text-dim);text-align:center;padding:20px;font-style:italic}
+
+/* IMAGE PANEL */
+.drop-area{
+  border:1.5px dashed var(--border2);border-radius:var(--radius);
+  min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;cursor:pointer;background:var(--surface);
+  transition:border-color .2s,background .2s;position:relative;padding:24px;
+}
+.drop-area.over{border-color:var(--accent);background:var(--accent-dim2)}
+.drop-area.loaded{min-height:auto;border-style:solid}
+.drop-icon{width:36px;height:36px;opacity:0.4}
+.drop-main{font-size:14px;color:var(--text-muted)}
+.drop-sub{font-size:12px;color:var(--text-dim)}
+.thumb-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;justify-content:center;padding:4px}
+.img-thumb{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px}
+.img-thumb img{width:110px;height:110px;object-fit:contain;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--bg)}
+.thumb-name{font-size:10px;color:var(--text-muted);font-weight:700;letter-spacing:0.8px}
+.thumb-rm{
+  position:absolute;top:-6px;right:-6px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--surface2);border:1px solid var(--border2);
+  cursor:pointer;font-size:11px;color:var(--text-muted);
+  display:flex;align-items:center;justify-content:center;line-height:1;
+  transition:background .15s;
+}
+.thumb-rm:hover{background:var(--del-bg);color:var(--del-text)}
+.add-more{font-size:12px;color:var(--text-dim);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:6px 14px;margin-left:4px}
+
+/* IMG CONTROLS */
+.controls-row{display:flex;align-items:center;gap:16px;padding:16px 0;flex-wrap:wrap}
+.ctrl-label{font-size:12px;color:var(--text-muted);letter-spacing:0.3px;white-space:nowrap}
+.speed-val{font-size:13px;font-weight:700;color:var(--accent);min-width:44px}
+input[type=range]{
+  flex:1;-webkit-appearance:none;appearance:none;height:3px;
+  background:var(--border2);border-radius:99px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;background:var(--accent);cursor:pointer;
+  box-shadow:0 0 0 3px rgba(200,255,0,0.2);
+}
+.play-btn{
+  padding:8px 20px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);
+  background:none;color:var(--text);font-size:13px;font-weight:700;
+  font-family:'Zen Kaku Gothic New',sans-serif;cursor:pointer;
+  transition:all .2s;letter-spacing:0.3px;
+}
+.play-btn:hover{border-color:var(--accent);color:var(--accent)}
+.play-btn.running{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+
+/* PREVIEW */
+.preview-outer{position:relative;margin-top:4px}
+.preview-wrap{
+  border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;height:340px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);
+}
+.preview-wrap canvas{max-width:100%;max-height:100%;display:block}
+.empty-msg{font-size:13px;color:var(--text-dim)}
+.img-badge{
+  position:absolute;bottom:12px;right:14px;
+  font-size:11px;font-weight:700;letter-spacing:1px;
+  padding:4px 12px;border-radius:99px;
+  background:rgba(14,14,16,0.8);border:1px solid var(--border2);
+  color:var(--text-muted);backdrop-filter:blur(6px);
+  display:none;pointer-events:none;
+}
+
+/* FOOTER / ACTION BAR */
+.action-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(14,14,16,0.85);backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+  padding:14px 24px;
+  display:flex;justify-content:center;
+}
+.diff-btn{
+  padding:12px 52px;border-radius:var(--radius-sm);border:none;
+  background:var(--accent);color:#0e0e10;
+  font-size:15px;font-weight:900;font-family:'Zen Kaku Gothic New',sans-serif;
+  cursor:pointer;letter-spacing:0.5px;
+  transition:all .15s;
+  box-shadow:0 0 24px rgba(200,255,0,0.2);
+}
+.diff-btn:hover{transform:translateY(-1px);box-shadow:0 4px 32px rgba(200,255,0,0.35)}
+.diff-btn:active{transform:scale(0.98)}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  .editors,.diff-cols{grid-template-columns:1fr}
+  .logo{font-size:24px}
+  .container{padding:32px 16px 100px}
+  header{margin-bottom:32px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo">差分<span>見えるくん</span></div>
+    </div>
+    <div class="tagline">テキストと画像の差分を、かんたんに確認できるツール</div>
+    <div class="badge-row">
+      <span class="badge">テキスト差分</span>
+      <span class="badge">画像比較</span>
+      <span class="badge">文字単位ハイライト</span>
+      <span class="badge">無料・登録不要</span>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('text',this)">テキスト</button>
+    <button class="tab" onclick="switchTab('image',this)">画像</button>
+  </div>
+
+  <!-- TEXT PANEL -->
+  <div id="text-panel" class="panel active">
+    <div class="editors">
+      <div class="editor-wrap">
+        <div class="editor-label"><span class="dot dot-before"></span>修正前</div>
+        <textarea id="ta-before" placeholder="修正前のテキストをここに貼り付け..."></textarea>
+      </div>
+      <div class="editor-wrap">
+        <div class="editor-label"><span class="dot dot-after"></span>修正後</div>
+        <textarea id="ta-after" placeholder="修正後のテキストをここに貼り付け..."></textarea>
+      </div>
+    </div>
+    <div id="diff-result"></div>
+  </div>
+
+  <!-- IMAGE PANEL -->
+  <div id="image-panel" class="panel">
+    <div class="drop-area" id="drop-zone"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave()" ondrop="onDrop(event)" onclick="triggerFile()">
+      <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <span class="drop-main" id="drop-main-text">クリックまたはドラッグ＆ドロップで画像を2枚選択</span>
+      <span class="drop-sub" id="drop-hint">PNG / JPG / GIF / WebP 対応</span>
+      <div id="thumb-container" class="thumb-row" style="display:none"></div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="loadFiles(event)">
+
+    <div class="controls-row">
+      <span class="ctrl-label">切り替え速度</span>
+      <input type="range" id="speed-range" min="200" max="3000" step="100" value="1000" oninput="updateSpeed(this.value)">
+      <span class="speed-val" id="speed-label">1.0秒</span>
+      <button class="play-btn" id="toggle-btn" onclick="togglePlay()">▶ 再生</button>
+    </div>
+
+    <div class="preview-outer">
+      <div class="preview-wrap" id="preview-wrap">
+        <span class="empty-msg">2枚の画像を読み込むと比較が始まります</span>
+      </div>
+      <span class="img-badge" id="cmp-label"></span>
+    </div>
+  </div>
+
+</div>
+
+<div class="action-bar" id="action-bar">
+  <button class="diff-btn" onclick="runDiff()">差分を表示</button>
+</div>
+
+<script>
+var currentTab='text';
+var imgA=null,imgB=null,srcA='',srcB='';
+var playInterval=null;
+var showingA=true;
+var intervalMs=1000;
+var previewCanvas=null;
+var dpr=window.devicePixelRatio||1;
+
+function switchTab(name,el){
+  currentTab=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(name+'-panel').classList.add('active');
+  document.getElementById('action-bar').style.display=name==='text'?'flex':'none';
+}
+
+// ---- TEXT DIFF ----
+function runDiff(){
+  var before=document.getElementById('ta-before').value;
+  var after=document.getElementById('ta-after').value;
+  var res=document.getElementById('diff-result');
+  if(!before&&!after){res.innerHTML='';return;}
+  var ops=charDiff(before,after);
+  var leftHtml='',rightHtml='',adds=0,dels=0;
+  ops.forEach(function(op){
+    if(op[0]===0){var e=esc(op[1]);leftHtml+=e;rightHtml+=e;}
+    else if(op[0]===-1){leftHtml+='<span class="del">'+esc(op[1])+'</span>';dels+=op[1].length;}
+    else if(op[0]===1){rightHtml+='<span class="ins">'+esc(op[1])+'</span>';adds+=op[1].length;}
+  });
+  var hasDiff=adds>0||dels>0;
+  res.innerHTML=hasDiff
+    ?'<div class="diff-summary"><span class="sum-add">＋'+adds+'文字 追加</span><span class="sum-del">－'+dels+'文字 削除</span></div><div class="diff-cols"><div><div class="diff-col-head"><span class="dot dot-before" style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px"></span>修正前</div><div class="diff-box">'+leftHtml+'</div></div><div><div class="diff-col-head"><span class="dot dot-after" style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px"></span>修正後</div><div class="diff-box">'+rightHtml+'</div></div></div>'
+    :'<div class="no-diff">差分はありません</div>';
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+
+function charDiff(a,b){
+  var m=a.length,n=b.length;
+  var dp=[];
+  for(var i=0;i<=m;i++){dp[i]=new Uint16Array(n+1);}
+  for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
+    if(a[i-1]===b[j-1])dp[i][j]=dp[i-1][j-1]+1;
+    else dp[i][j]=dp[i-1][j]>dp[i][j-1]?dp[i-1][j]:dp[i][j-1];
+  }
+  var ops=[];var i=m,j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&a[i-1]===b[j-1]){ops.unshift([0,a[i-1]]);i--;j--;}
+    else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){ops.unshift([1,b[j-1]]);j--;}
+    else{ops.unshift([-1,a[i-1]]);i--;}
+  }
+  var merged=[];
+  ops.forEach(function(op){
+    if(merged.length&&merged[merged.length-1][0]===op[0])merged[merged.length-1][1]+=op[1];
+    else merged.push([op[0],op[1]]);
+  });
+  return merged;
+}
+
+// ---- IMAGE ----
+function onDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('over');}
+function onDragLeave(){document.getElementById('drop-zone').classList.remove('over');}
+function onDrop(e){
+  e.preventDefault();document.getElementById('drop-zone').classList.remove('over');
+  var files=Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')).slice(0,2);
+  if(files.length)processFiles(files);
+}
+function triggerFile(){if(imgA&&imgB)return;document.getElementById('file-input').click();}
+function loadFiles(e){var files=Array.from(e.target.files).slice(0,2);if(files.length)processFiles(files);e.target.value='';}
+
+function processFiles(files){
+  var toLoad=files.length;
+  var imgs=[null,null],srcs=['',''];
+  files.forEach(function(f,idx){
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var img=new Image();
+      img.onload=function(){
+        imgs[idx]=img;srcs[idx]=ev.target.result;toLoad--;
+        if(toLoad===0){
+          if(files.length===1&&imgA){imgB=imgs[0];srcB=srcs[0];}
+          else{imgA=imgs[0];srcA=srcs[0];if(imgs[1]){imgB=imgs[1];srcB=srcs[1];}}
+          updateDropUI();if(imgA&&imgB)initPreview();
+        }
+      };img.src=ev.target.result;
+    };reader.readAsDataURL(f);
+  });
+}
+
+function updateDropUI(){
+  var zone=document.getElementById('drop-zone');
+  var tc=document.getElementById('thumb-container');
+  var mt=document.getElementById('drop-main-text');
+  var hint=document.getElementById('drop-hint');
+  if(imgA||imgB){
+    zone.classList.add('loaded');mt.style.display='none';hint.style.display='none';tc.style.display='flex';
+    var html='';
+    if(imgA)html+='<div class="img-thumb"><img src="'+srcA+'"><span class="thumb-rm" onclick="removeImg(event,\'a\')">×</span><div class="thumb-name">画像 A</div></div>';
+    if(imgB)html+='<div class="img-thumb"><img src="'+srcB+'"><span class="thumb-rm" onclick="removeImg(event,\'b\')">×</span><div class="thumb-name">画像 B</div></div>';
+    if(!(imgA&&imgB))html+='<span class="add-more">＋ もう1枚追加</span>';
+    tc.innerHTML=html;
+  } else {
+    zone.classList.remove('loaded');mt.style.display='';hint.style.display='';tc.style.display='none';tc.innerHTML='';
+  }
+}
+
+function removeImg(e,side){
+  e.stopPropagation();stopPlay();
+  if(side==='a'){imgA=null;srcA='';}else{imgB=null;srcB='';}
+  updateDropUI();
+  if(!(imgA&&imgB)){
+    document.getElementById('preview-wrap').innerHTML='<span class="empty-msg">2枚の画像を読み込むと比較が始まります</span>';
+    document.getElementById('cmp-label').style.display='none';previewCanvas=null;
+  }
+}
+
+function initPreview(){
+  document.getElementById('preview-wrap').innerHTML='<canvas id="cmp-canvas"></canvas>';
+  previewCanvas=document.getElementById('cmp-canvas');
+  showingA=true;drawImg(imgA,'画像 A');startPlay();
+}
+
+function drawImg(img,label){
+  var pw=document.getElementById('preview-wrap');
+  var maxW=pw.clientWidth||800,maxH=pw.clientHeight||340;
+  var scale=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight,1);
+  var cssW=Math.round(img.naturalWidth*scale),cssH=Math.round(img.naturalHeight*scale);
+  previewCanvas.style.width=cssW+'px';previewCanvas.style.height=cssH+'px';
+  previewCanvas.width=cssW*dpr;previewCanvas.height=cssH*dpr;
+  var ctx=previewCanvas.getContext('2d');
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.scale(dpr,dpr);ctx.drawImage(img,0,0,cssW,cssH);
+  var badge=document.getElementById('cmp-label');badge.textContent=label;badge.style.display='block';
+}
+
+function startPlay(){
+  stopPlay();
+  var btn=document.getElementById('toggle-btn');btn.textContent='■ 停止';btn.classList.add('running');
+  playInterval=setInterval(function(){
+    if(!imgA||!imgB){stopPlay();return;}
+    showingA=!showingA;drawImg(showingA?imgA:imgB,showingA?'画像 A':'画像 B');
+  },intervalMs);
+}
+function stopPlay(){
+  if(playInterval)clearInterval(playInterval);playInterval=null;
+  var btn=document.getElementById('toggle-btn');btn.textContent='▶ 再生';btn.classList.remove('running');
+}
+function togglePlay(){if(playInterval)stopPlay();else if(imgA&&imgB)startPlay();}
+function updateSpeed(v){
+  intervalMs=parseInt(v);
+  document.getElementById('speed-label').textContent=(intervalMs/1000).toFixed(1)+'秒';
+  if(playInterval&&imgA&&imgB)startPlay();
+}
+</script>
+</body>
+</html>
