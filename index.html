@@ -284,6 +284,7 @@ input[type=range]::-webkit-slider-thumb{
       <span class="speed-val" id="speed-label">1.0秒</span>
       <button class="play-btn" id="toggle-btn" onclick="togglePlay()">▶ 再生</button>
       <button class="play-btn" id="gif-btn" onclick="exportGif()" style="border-color:rgba(200,255,0,0.4);color:var(--accent)" disabled>GIF書き出し</button>
+      <button class="play-btn" id="mp4-btn" onclick="exportMp4()" style="border-color:rgba(200,255,0,0.4);color:var(--accent)" disabled>動画書き出し</button>
     </div>
     <div id="gif-status" style="font-size:12px;color:var(--text-muted);padding:4px 0;min-height:20px"></div>
 
@@ -443,6 +444,7 @@ function removeImg(e,side){
     document.getElementById('preview-wrap').innerHTML='<span class="empty-msg">2枚の画像を読み込むと比較が始まります</span>';
     document.getElementById('cmp-label').style.display='none';previewCanvas=null;
     document.getElementById('gif-btn').disabled=true;
+    document.getElementById('mp4-btn').disabled=true;
     document.getElementById('gif-status').textContent='';
   }
 }
@@ -452,6 +454,7 @@ function initPreview(){
   previewCanvas=document.getElementById('cmp-canvas');
   showingA=true;drawImg(imgA,'画像 A');startPlay();
   document.getElementById('gif-btn').disabled=false;
+  document.getElementById('mp4-btn').disabled=false;
 }
 
 function drawImg(img,label){
@@ -486,7 +489,87 @@ function updateSpeed(v){
   if(playInterval&&imgA&&imgB)startPlay();
 }
 
-// ---- GIF EXPORT (pure JS, no Worker) ----
+// ---- VIDEO EXPORT (MediaRecorder) ----
+function exportMp4(){
+  if(!imgA||!imgB)return;
+  var btn=document.getElementById('mp4-btn');
+  var statusEl=document.getElementById('gif-status');
+  btn.disabled=true;
+  document.getElementById('gif-btn').disabled=true;
+
+  // 出力サイズ
+  var natW=Math.max(imgA.naturalWidth,imgB.naturalWidth);
+  var natH=Math.max(imgA.naturalHeight,imgB.naturalHeight);
+  var maxSide=1280;
+  var scale=Math.min(maxSide/natW,maxSide/natH,1);
+  var W=Math.round(natW*scale);
+  var H=Math.round(natH*scale);
+
+  // offscreen canvas
+  var c=document.createElement('canvas');
+  c.width=W;c.height=H;
+  var ctx=c.getContext('2d');
+
+  // MediaRecorder対応フォーマットを自動判定
+  var mime='video/webm;codecs=vp9';
+  if(!MediaRecorder.isTypeSupported(mime))mime='video/webm;codecs=vp8';
+  if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
+  if(!MediaRecorder.isTypeSupported(mime)){
+    statusEl.textContent='このブラウザは動画書き出しに対応していません。';
+    btn.disabled=false;document.getElementById('gif-btn').disabled=false;
+    return;
+  }
+
+  var stream=c.captureStream(60);
+  var recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+  var chunks=[];
+  recorder.ondataavailable=function(e){if(e.data.size>0)chunks.push(e.data);};
+
+  // 総再生時間：切り替えを5回繰り返す（A→B→A→B→A→B）
+  var totalCycles=3; // A+B で1サイクル
+  var totalFrames=totalCycles*2;
+  var frameDuration=intervalMs; // ms per frame
+  var totalDuration=totalFrames*frameDuration;
+
+  recorder.onstop=function(){
+    var ext=mime.includes('mp4')?'mp4':'webm';
+    var blob=new Blob(chunks,{type:mime});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='diff-animation.'+ext;
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);},5000);
+    btn.disabled=false;document.getElementById('gif-btn').disabled=false;
+    statusEl.textContent='✓ ダウンロード完了！（'+Math.round(blob.size/1024)+'KB・'+ext.toUpperCase()+'）';
+    setTimeout(function(){statusEl.textContent='';},4000);
+  };
+
+  recorder.start();
+  statusEl.textContent='動画を録画中...';
+
+  var frameIndex=0;
+  function drawFrame(){
+    var img=frameIndex%2===0?imgA:imgB;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+    ctx.drawImage(img,0,0,W,H);
+    frameIndex++;
+    var remaining=totalFrames-frameIndex;
+    statusEl.textContent='動画を録画中... ('+frameIndex+'/'+totalFrames+')';
+    if(frameIndex<totalFrames){
+      setTimeout(drawFrame,frameDuration);
+    } else {
+      // 最後のフレームを少し保持してから停止
+      setTimeout(function(){recorder.stop();},frameDuration);
+    }
+  }
+
+  // 最初のフレームを描いてから開始
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.drawImage(imgA,0,0,W,H);
+  setTimeout(drawFrame,frameDuration);
+}
 // LZW + GIF89a encoder
 function exportGif(){
   if(!imgA||!imgB)return;
