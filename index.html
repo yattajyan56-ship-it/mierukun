@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>差分見えるくん</title>
-<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAACuUlEQVR4nG2WS5LcMAxDHzy+Re5/m1wm+1RjFvzK7l50SaZEkQQISX////lc/8QPABgUf9gWsgCrvhqDZOJrmGxUdodVGMvyDRLEjjogfoplIrxhpBrFAtUe9xjZsVmAzQ12+FIFPtHWSQ5vdsWN5Do4nHuiWyvlOxwI4zibSXam4CpGBO1KENXGqON2guEG5eJKuj1b0iSUBc+8IoPIJguAe5rhCXyDiQzI4wtkbJNRK8a1L6dV9yhIuI/xFPgqUBe0PT5wiNgbTNo0SWw/JCHuhmd9fPlf3KoaN5IURYPW63RjcZMgNBenRF3I09TF2yBna5RliHgDloIiQ9P0qdV5i4s0TbcpnLC4no3WNE2kAtVOdHNxajbMy6irBkODxoBsvezHlYGKldNoOjPgzIBq4SD0ZFABH+TDtsQUN8fF2jODbLRcFxpm4OL1W/R7ctJjXYHkh2Pe+V1780GymWqb3iu9e0PauyyuFt9iyYEeJW+qLlN1ee8KPHOaW4I4KNV0FAZKLg9B9fLqtYaNf8hhE2QaTYJr9V7fDUmF6m9LBXL+1S6b6wC8LirqPuCzir78FzrW1ww+O7kU1/KsuNF40JSTpiya4kW+Uo4yJU1znVcG1+bHFxI9JXNWPVn6/JC/6uTZZc9dK1agVRnXHdX0fkWCsrweNe2qrBJFUZeLb82gquVOf5h458z7kIZii34e2UGfIR+gzHRloBHCtYSNfxqDmasfq0FHgZcaXzPjC3DHDarudNAJqs69mvmNGsxsxSb7l0z6XtiobvKdNLa4MUrSxjavTm71fppsL8nqJ5N4SEldOKEhGaknIs1jJ02e8QmzD7muPkuQ8TzZ5NeVyWnqoDeDvdnMmnajTU89Mxg/Gnq37iULdKRT4o3zZRc07Ofe6HcUN7/JBXk99Nh1GmlHDicf8QvDyC8Rx8kxkAAAAABJRU5ErkJggg==">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAANElEQVR42u3OMREAMAgEsFfA4V9RXYEIhi4ZsidVPRdvchIBAQEBAQEBAQEBAQEBAYHfgQWoeOJqqvg4zQAAAABJRU5ErkJggg==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -303,21 +303,21 @@ input[type=range]::-webkit-slider-thumb{
 <div class="action-bar" id="action-bar">
   <button class="diff-btn" onclick="runDiff()">差分を表示</button>
   <button class="diff-btn" id="pdf-btn" onclick="exportPdf()" style="background:none;border:1.5px solid rgba(200,255,0,0.5);color:var(--accent);margin-left:10px;box-shadow:none;display:none">PDF書き出し</button>
-  <button class="diff-btn" id="share-btn" onclick="shareDiff()" style="background:none;border:1.5px solid rgba(200,255,0,0.5);color:var(--accent);margin-left:10px;box-shadow:none;display:none">🔗 共有リンクを作成</button>
+  <button class="diff-btn" id="share-btn" onclick="shareDiff()" style="background:none;border:1.5px solid rgba(200,255,0,0.5);color:var(--accent);margin-left:10px;box-shadow:none;display:none">🔗 共有リンク</button>
 </div>
 
 <!-- share modal -->
-<div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center">
-  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:28px 32px;max-width:560px;width:90%;position:relative">
+<div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:28px 32px;max-width:580px;width:90%;position:relative">
     <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">共有リンク</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">このURLを共有すると、受け取った人が同じ差分を確認できます</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">このURLを共有すると、受け取った人が同じ差分を確認できます（サーバー不要・データはURLの中のみ）</div>
     <div style="display:flex;gap:8px">
       <input id="share-url-input" type="text" readonly
-        style="flex:1;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace;outline:none">
-      <button onclick="copyShareUrl()" style="padding:10px 18px;background:var(--accent);color:#0e0e10;border:none;border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif">コピー</button>
+        style="flex:1;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:11px;font-family:'JetBrains Mono',monospace;outline:none">
+      <button id="share-copy-btn" onclick="copyShareUrl()" style="padding:10px 18px;background:var(--accent);color:#0e0e10;border:none;border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif;white-space:nowrap">コピー</button>
     </div>
-    <div id="share-warn" style="font-size:11px;color:var(--text-dim);margin-top:10px"></div>
-    <button onclick="document.getElementById('share-modal').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer">✕</button>
+    <div id="share-warn" style="font-size:11px;margin-top:10px"></div>
+    <button onclick="document.getElementById('share-modal').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1">✕</button>
   </div>
 </div>
 
@@ -367,7 +367,7 @@ function runDiff(){
   res.innerHTML=hasDiff
     ?'<div class="diff-summary"><span class="sum-del">－'+dels+'文字 削除</span><span class="sum-add">＋'+adds+'文字 追加</span><span style="color:var(--text-dim)">修正前: '+beforeLen+'文字</span><span style="color:var(--text-dim)">修正後: '+afterLen+'文字</span><span style="color:var(--text-muted)">差分: '+diffSign+Math.abs(diffLen)+'文字</span></div><div class="diff-cols"><div><div class="diff-col-head"><span class="dot dot-before" style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px"></span>修正前</div><div class="diff-box">'+leftHtml+'</div></div><div><div class="diff-col-head"><span class="dot dot-after" style="display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px"></span>修正後</div><div class="diff-box">'+rightHtml+'</div></div></div>'
     :'<div class="no-diff">差分はありません（'+beforeLen+'文字）</div>';
-  // 差分があればPDF・共有ボタンを表示
+  // 差分があればPDFボタン・共有ボタンを表示
   pdfBtn.style.display=hasDiff?'inline-block':'none';
   document.getElementById('share-btn').style.display=hasDiff?'inline-block':'none';
   // 印刷用メタ情報
@@ -810,65 +810,55 @@ function shareDiff(){
   var after=document.getElementById('ta-after').value;
   if(!before&&!after)return;
   try{
-    var data=JSON.stringify({b:before,a:after});
-    var encoded=btoa(unescape(encodeURIComponent(data)));
+    var encoded=btoa(unescape(encodeURIComponent(JSON.stringify({b:before,a:after}))));
     var url=location.href.split('#')[0]+'#diff='+encoded;
-    document.getElementById('share-url-input').value=url;
-    // URLが長い場合は警告
+    var input=document.getElementById('share-url-input');
     var warn=document.getElementById('share-warn');
+    input.value=url;
     if(url.length>4000){
-      warn.textContent='⚠ テキストが長いためURLが'+url.length+'文字になっています。一部のSNSや環境では開けない場合があります。';
+      warn.textContent='⚠ URL長: '+url.length+'文字。テキストが長いため一部の環境で開けない場合があります。';
       warn.style.color='#ff9090';
-    } else {
+    }else{
       warn.textContent='✓ URL長: '+url.length+'文字（問題ありません）';
       warn.style.color='var(--accent)';
     }
     document.getElementById('share-modal').style.display='flex';
-  }catch(e){
-    alert('共有リンクの生成に失敗しました。');
-  }
+  }catch(e){alert('共有リンクの生成に失敗しました。');}
 }
 
 function copyShareUrl(){
   var input=document.getElementById('share-url-input');
+  var btn=document.getElementById('share-copy-btn');
   var text=input.value;
+  function done(){btn.textContent='コピー済み！';setTimeout(function(){btn.textContent='コピー';},2000);}
   if(navigator.clipboard&&window.isSecureContext){
-    navigator.clipboard.writeText(text).then(function(){
-      var btn=event.target;btn.textContent='コピー済み！';
-      setTimeout(function(){btn.textContent='コピー';},2000);
-    });
-  } else {
-    input.select();document.execCommand('copy');
-    var btn=event.target;btn.textContent='コピー済み！';
-    setTimeout(function(){btn.textContent='コピー';},2000);
+    navigator.clipboard.writeText(text).then(done);
+  }else{
+    input.select();try{document.execCommand('copy');}catch(e){}done();
   }
 }
 
 // ページ読み込み時にURLハッシュから差分を復元
-function restoreFromHash(){
+(function(){
   var hash=location.hash;
-  if(!hash||hash.indexOf('#diff=')<0)return;
+  if(!hash||hash.indexOf('diff=')<0)return;
   try{
-    var encoded=hash.replace('#diff=','');
+    var encoded=hash.replace(/^#diff=/,'');
     var data=JSON.parse(decodeURIComponent(escape(atob(encoded))));
     if(data.b!==undefined)document.getElementById('ta-before').value=data.b;
     if(data.a!==undefined)document.getElementById('ta-after').value=data.a;
     updateCount();
-    // 自動的に差分を表示
     setTimeout(function(){
-      runDiff();
-      // テキストタブを選択
+      // テキストタブを確実に選択
       document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
       document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
-      document.querySelector('.tab').classList.add('active');
+      document.querySelector('[onclick*="text"]').classList.add('active');
       document.getElementById('text-panel').classList.add('active');
       document.getElementById('action-bar').style.display='flex';
-    },100);
-  }catch(e){
-    // ハッシュが不正な場合は無視
-  }
-}
-restoreFromHash();
+      runDiff();
+    },200);
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
