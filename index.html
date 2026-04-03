@@ -804,13 +804,18 @@ function lzwEncode(indices,minCodeSize){
   emit(eofCode);
   if(bufBits>0)out.push(buf&0xff);
   return out;
+}
 // ---- SHARE (URLエンコード方式) ----
 function shareDiff(){
   var before=document.getElementById('ta-before').value;
   var after=document.getElementById('ta-after').value;
   if(!before&&!after)return;
   try{
-    var encoded=btoa(unescape(encodeURIComponent(JSON.stringify({b:before,a:after}))));
+    var json=JSON.stringify({b:before,a:after});
+    // TextEncoder で正確にUTF-8 → Base64
+    var bytes=new TextEncoder().encode(json);
+    var binary=String.fromCharCode.apply(null,bytes);
+    var encoded=btoa(binary);
     var url=location.href.split('#')[0]+'#diff='+encoded;
     var input=document.getElementById('share-url-input');
     var warn=document.getElementById('share-warn');
@@ -839,26 +844,28 @@ function copyShareUrl(){
 }
 
 // ページ読み込み時にURLハッシュから差分を復元
-(function(){
-  var hash=location.hash;
-  if(!hash||hash.indexOf('diff=')<0)return;
+window.addEventListener('DOMContentLoaded', function(){
+  var hash = location.hash;
+  if(!hash || hash.indexOf('diff=') < 0) return;
   try{
-    var encoded=hash.replace(/^#diff=/,'');
-    var data=JSON.parse(decodeURIComponent(escape(atob(encoded))));
-    if(data.b!==undefined)document.getElementById('ta-before').value=data.b;
-    if(data.a!==undefined)document.getElementById('ta-after').value=data.a;
+    var encoded = hash.replace(/^#diff=/, '');
+    var binary = atob(encoded);
+    var bytes = new Uint8Array(binary.length);
+    for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    var json = new TextDecoder().decode(bytes);
+    var data = JSON.parse(json);
+    var taBefore = document.getElementById('ta-before');
+    var taAfter  = document.getElementById('ta-after');
+    if(taBefore && data.b !== undefined) taBefore.value = data.b;
+    if(taAfter  && data.a !== undefined) taAfter.value  = data.a;
     updateCount();
     setTimeout(function(){
-      // テキストタブを確実に選択
-      document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
-      document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
-      document.querySelector('[onclick*="text"]').classList.add('active');
-      document.getElementById('text-panel').classList.add('active');
-      document.getElementById('action-bar').style.display='flex';
       runDiff();
-    },200);
-  }catch(e){}
-})();
+    }, 100);
+  } catch(e){
+    console.error('共有URLの復元エラー:', e);
+  }
+}); // DOMContentLoaded end
 </script>
 </body>
 </html>
