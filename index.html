@@ -284,8 +284,8 @@ input[type=range]::-webkit-slider-thumb{
       <input type="range" id="speed-range" min="200" max="3000" step="100" value="1000" oninput="updateSpeed(this.value)">
       <span class="speed-val" id="speed-label">1.0秒</span>
       <button class="play-btn" id="toggle-btn" onclick="togglePlay()">▶ 再生</button>
-      <button class="play-btn" id="gif-btn" onclick="exportGif()" style="border-color:rgba(200,255,0,0.4);color:var(--accent)" disabled>GIF書き出し</button>
-      <button class="play-btn" id="mp4-btn" onclick="exportMp4()" style="border-color:rgba(200,255,0,0.4);color:var(--accent)" disabled>動画書き出し</button>
+      <button class="play-btn" id="mp4-dl-btn" onclick="exportMp4('download')" style="border-color:rgba(200,255,0,0.4);color:var(--accent)" disabled>⬇ 動画DL</button>
+      <button class="play-btn" id="mp4-share-btn" onclick="exportMp4('share')" style="border-color:rgba(200,255,0,0.4);color:var(--accent)" disabled>🔗 動画を共有</button>
     </div>
     <div id="gif-status" style="font-size:12px;color:var(--text-muted);padding:4px 0;min-height:20px"></div>
 
@@ -306,7 +306,20 @@ input[type=range]::-webkit-slider-thumb{
   <button class="diff-btn" id="share-btn" onclick="shareDiff()" style="background:none;border:1.5px solid rgba(200,255,0,0.5);color:var(--accent);margin-left:10px;box-shadow:none;display:none">🔗 共有リンク</button>
 </div>
 
-<!-- share modal -->
+<!-- video share modal -->
+<div id="video-share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:28px 32px;max-width:580px;width:90%;position:relative">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">動画の共有リンク</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Imgurにアップロードされました。このURLを共有してください。<span id="video-share-size" style="color:var(--accent);margin-left:8px"></span></div>
+    <div style="display:flex;gap:8px">
+      <input id="video-share-url" type="text" readonly
+        style="flex:1;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:11px;font-family:'JetBrains Mono',monospace;outline:none">
+      <button onclick="copyVideoUrl()" style="padding:10px 18px;background:var(--accent);color:#0e0e10;border:none;border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif;white-space:nowrap" id="video-copy-btn">コピー</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:10px">※ Imgurの無料プランではアップロードした動画は一定期間後に削除される場合があります</div>
+    <button onclick="document.getElementById('video-share-modal').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1">✕</button>
+  </div>
+</div>
 <div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
   <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:28px 32px;max-width:580px;width:90%;position:relative">
     <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">共有リンク</div>
@@ -461,8 +474,8 @@ function removeImg(e,side){
   if(!(imgA&&imgB)){
     document.getElementById('preview-wrap').innerHTML='<span class="empty-msg">2枚の画像を読み込むと比較が始まります</span>';
     document.getElementById('cmp-label').style.display='none';previewCanvas=null;
-    document.getElementById('gif-btn').disabled=true;
-    document.getElementById('mp4-btn').disabled=true;
+    document.getElementById('mp4-dl-btn').disabled=true;
+    document.getElementById('mp4-share-btn').disabled=true;
     document.getElementById('gif-status').textContent='';
   }
 }
@@ -471,8 +484,8 @@ function initPreview(){
   document.getElementById('preview-wrap').innerHTML='<canvas id="cmp-canvas"></canvas>';
   previewCanvas=document.getElementById('cmp-canvas');
   showingA=true;drawImg(imgA,'画像 A');startPlay();
-  document.getElementById('gif-btn').disabled=false;
-  document.getElementById('mp4-btn').disabled=false;
+  document.getElementById('mp4-dl-btn').disabled=false;
+  document.getElementById('mp4-share-btn').disabled=false;
 }
 
 function drawImg(img,label){
@@ -508,14 +521,13 @@ function updateSpeed(v){
 }
 
 // ---- VIDEO EXPORT (MediaRecorder) ----
-function exportMp4(){
+function exportMp4(mode){
   if(!imgA||!imgB)return;
-  var btn=document.getElementById('mp4-btn');
+  var dlBtn=document.getElementById('mp4-dl-btn');
+  var shareBtn=document.getElementById('mp4-share-btn');
   var statusEl=document.getElementById('gif-status');
-  btn.disabled=true;
-  document.getElementById('gif-btn').disabled=true;
+  dlBtn.disabled=true;shareBtn.disabled=true;
 
-  // 出力サイズ
   var natW=Math.max(imgA.naturalWidth,imgB.naturalWidth);
   var natH=Math.max(imgA.naturalHeight,imgB.naturalHeight);
   var maxSide=1280;
@@ -523,19 +535,16 @@ function exportMp4(){
   var W=Math.round(natW*scale);
   var H=Math.round(natH*scale);
 
-  // offscreen canvas
   var c=document.createElement('canvas');
   c.width=W;c.height=H;
   var ctx=c.getContext('2d');
 
-  // MediaRecorder対応フォーマットを自動判定
   var mime='video/webm;codecs=vp9';
   if(!MediaRecorder.isTypeSupported(mime))mime='video/webm;codecs=vp8';
   if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
   if(!MediaRecorder.isTypeSupported(mime)){
     statusEl.textContent='このブラウザは動画書き出しに対応していません。';
-    btn.disabled=false;document.getElementById('gif-btn').disabled=false;
-    return;
+    dlBtn.disabled=false;shareBtn.disabled=false;return;
   }
 
   var stream=c.captureStream(60);
@@ -543,24 +552,55 @@ function exportMp4(){
   var chunks=[];
   recorder.ondataavailable=function(e){if(e.data.size>0)chunks.push(e.data);};
 
-  // 総再生時間：切り替えを5回繰り返す（A→B→A→B→A→B）
-  var totalCycles=3; // A+B で1サイクル
-  var totalFrames=totalCycles*2;
-  var frameDuration=intervalMs; // ms per frame
-  var totalDuration=totalFrames*frameDuration;
+  var totalFrames=6;
+  var frameDuration=intervalMs;
 
   recorder.onstop=function(){
     var ext=mime.includes('mp4')?'mp4':'webm';
     var blob=new Blob(chunks,{type:mime});
-    var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');
-    a.href=url;
-    a.download='diff-animation.'+ext;
-    a.click();
-    setTimeout(function(){URL.revokeObjectURL(url);},5000);
-    btn.disabled=false;document.getElementById('gif-btn').disabled=false;
-    statusEl.textContent='✓ ダウンロード完了！（'+Math.round(blob.size/1024)+'KB・'+ext.toUpperCase()+'）';
-    setTimeout(function(){statusEl.textContent='';},4000);
+    dlBtn.disabled=false;shareBtn.disabled=false;
+
+    if(mode==='download'){
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url;a.download='diff-animation.'+ext;a.click();
+      setTimeout(function(){URL.revokeObjectURL(url);},5000);
+      statusEl.textContent='✓ ダウンロード完了！（'+Math.round(blob.size/1024)+'KB）';
+      setTimeout(function(){statusEl.textContent='';},4000);
+    } else {
+      // Imgur APIにアップロード
+      statusEl.textContent='Imgurにアップロード中...';
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        var base64=ev.target.result.split(',')[1];
+        fetch('https://api.imgur.com/3/upload',{
+          method:'POST',
+          headers:{
+            'Authorization':'Client-ID 546c25a59c58ad7',
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({
+            image:base64,
+            type:'base64',
+            title:'差分見えるくん - diff animation'
+          })
+        })
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(data.success){
+            var link=data.data.link;
+            showVideoShareModal(link,blob.size);
+            statusEl.textContent='';
+          } else {
+            statusEl.textContent='⚠ アップロード失敗: '+( data.data&&data.data.error||'不明なエラー');
+          }
+        })
+        .catch(function(err){
+          statusEl.textContent='⚠ ネットワークエラー。GitHubPages上で試してください。';
+        });
+      };
+      reader.readAsDataURL(blob);
+    }
   };
 
   recorder.start();
@@ -573,238 +613,25 @@ function exportMp4(){
     ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
     ctx.drawImage(img,0,0,W,H);
     frameIndex++;
-    var remaining=totalFrames-frameIndex;
     statusEl.textContent='動画を録画中... ('+frameIndex+'/'+totalFrames+')';
     if(frameIndex<totalFrames){
       setTimeout(drawFrame,frameDuration);
     } else {
-      // 最後のフレームを少し保持してから停止
       setTimeout(function(){recorder.stop();},frameDuration);
     }
   }
-
-  // 最初のフレームを描いてから開始
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
   ctx.drawImage(imgA,0,0,W,H);
   setTimeout(drawFrame,frameDuration);
 }
-// LZW + GIF89a encoder
-function exportGif(){
-  if(!imgA||!imgB)return;
-  var btn=document.getElementById('gif-btn');
-  var statusEl=document.getElementById('gif-status');
-  btn.disabled=true;
-  statusEl.textContent='GIFを生成中...';
 
-  setTimeout(function(){
-    try{
-      var natW=Math.max(imgA.naturalWidth,imgB.naturalWidth);
-      var natH=Math.max(imgA.naturalHeight,imgB.naturalHeight);
-      var maxSide=800;
-      var scale=Math.min(maxSide/natW,maxSide/natH,1);
-      var W=Math.round(natW*scale);
-      var H=Math.round(natH*scale);
-
-      var c=document.createElement('canvas');
-      c.width=W;c.height=H;
-      var ctx=c.getContext('2d');
-
-      function getRGBA(img){
-        ctx.clearRect(0,0,W,H);
-        ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-        ctx.drawImage(img,0,0,W,H);
-        return ctx.getImageData(0,0,W,H).data;
-      }
-
-      var rgbaA=getRGBA(imgA);
-      var rgbaB=getRGBA(imgB);
-
-      // メディアンカット法で256色パレット生成
-      function medianCut(rgba,maxColors){
-        // ピクセル配列を作る（サンプリングして高速化）
-        var pixels=[];
-        var step=Math.max(1,Math.floor(rgba.length/4/4000)); // 最大4000サンプル
-        for(var i=0;i<rgba.length;i+=4*step){
-          pixels.push([rgba[i],rgba[i+1],rgba[i+2]]);
-        }
-        // 再帰的に分割
-        function cut(pixels,depth){
-          if(depth===0||pixels.length===0){
-            // このバケツの平均色を返す
-            var r=0,g=0,b=0;
-            for(var i=0;i<pixels.length;i++){r+=pixels[i][0];g+=pixels[i][1];b+=pixels[i][2];}
-            var n=pixels.length||1;
-            return[[Math.round(r/n),Math.round(g/n),Math.round(b/n)]];
-          }
-          // 最もレンジが広いチャンネルで分割
-          var minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
-          for(var i=0;i<pixels.length;i++){
-            if(pixels[i][0]<minR)minR=pixels[i][0];if(pixels[i][0]>maxR)maxR=pixels[i][0];
-            if(pixels[i][1]<minG)minG=pixels[i][1];if(pixels[i][1]>maxG)maxG=pixels[i][1];
-            if(pixels[i][2]<minB)minB=pixels[i][2];if(pixels[i][2]>maxB)maxB=pixels[i][2];
-          }
-          var rR=maxR-minR,rG=maxG-minG,rB=maxB-minB;
-          var ch=rR>=rG&&rR>=rB?0:rG>=rB?1:2;
-          pixels.sort(function(a,b){return a[ch]-b[ch];});
-          var mid=Math.floor(pixels.length/2);
-          return cut(pixels.slice(0,mid),depth-1).concat(cut(pixels.slice(mid),depth-1));
-        }
-        var depth=Math.ceil(Math.log2(maxColors));
-        return cut(pixels,depth);
-      }
-
-      function findNearest(pal,r,g,b){
-        var best=0,bestD=1e9;
-        for(var i=0;i<pal.length;i++){
-          var dr=pal[i][0]-r,dg=pal[i][1]-g,db=pal[i][2]-b;
-          var d=dr*dr+dg*dg+db*db;
-          if(d<bestD){bestD=d;best=i;}
-        }
-        return best;
-      }
-
-      function quantize(rgba,pal){
-        var idx=new Uint8Array(W*H);
-        // 近傍キャッシュ
-        var cache={};
-        for(var i=0,p=0;i<rgba.length;i+=4,p++){
-          var r=rgba[i],g=rgba[i+1],b=rgba[i+2];
-          // 5bit丸めでキャッシュキーを作る（速度優先）
-          var key=((r>>3)<<10)|((g>>3)<<5)|(b>>3);
-          if(cache[key]===undefined)cache[key]=findNearest(pal,r,g,b);
-          idx[p]=cache[key];
-        }
-        return idx;
-      }
-
-      // 両フレーム合わせてパレット生成
-      var combined=new Uint8Array(rgbaA.length+rgbaB.length);
-      combined.set(rgbaA);combined.set(rgbaB,rgbaA.length);
-      statusEl.textContent='パレット生成中...';
-      var pal=medianCut(combined,256);
-      while(pal.length<256)pal.push([0,0,0]);
-      pal=pal.slice(0,256);
-
-      statusEl.textContent='フレームをインデックス化中...';
-      var idxA=quantize(rgbaA,pal);
-      var idxB=quantize(rgbaB,pal);
-
-      statusEl.textContent='フレームをエンコード中...';
-      var delay=intervalMs;
-      var bytes=encodeGIF(W,H,pal,[idxA,idxB],delay);
-      var blob=new Blob([bytes],{type:'image/gif'});
-      var url=URL.createObjectURL(blob);
-      var a=document.createElement('a');
-      a.href=url;a.download='diff-animation.gif';a.click();
-      setTimeout(function(){URL.revokeObjectURL(url);},5000);
-      btn.disabled=false;
-      statusEl.textContent='✓ ダウンロード完了！（'+Math.round(blob.size/1024)+'KB）';
-      setTimeout(function(){statusEl.textContent='';},4000);
-    }catch(e){
-      btn.disabled=false;
-      statusEl.textContent='エラー: '+e.message;
-    }
-  },30);
+function showVideoShareModal(link,size){
+  var modal=document.getElementById('video-share-modal');
+  document.getElementById('video-share-url').value=link;
+  document.getElementById('video-share-size').textContent=Math.round(size/1024)+'KB';
+  modal.style.display='flex';
 }
 
-function encodeGIF(w,h,pal,frames,delayMs){
-  var out=[];
-  function byte(b){out.push(b&0xff);}
-  function word(v){byte(v&0xff);byte((v>>8)&0xff);}
-  function str(s){for(var i=0;i<s.length;i++)byte(s.charCodeAt(i));}
-
-  // Header
-  str('GIF89a');
-  word(w);word(h);
-  byte(0xf7); // global color table, 256 colors
-  byte(0);byte(0);
-  for(var i=0;i<256;i++){
-    if(i<pal.length){byte(pal[i][0]);byte(pal[i][1]);byte(pal[i][2]);}
-    else{byte(0);byte(0);byte(0);}
-  }
-
-  // Netscape loop extension
-  byte(0x21);byte(0xff);byte(0x0b);
-  str('NETSCAPE2.0');
-  byte(3);byte(1);word(0);byte(0);
-
-  var delayCentisec=Math.max(1,Math.round(delayMs/10));
-
-  for(var f=0;f<frames.length;f++){
-    // Graphic control ext
-    byte(0x21);byte(0xf9);byte(4);
-    byte(0); // disposal=0
-    word(delayCentisec);
-    byte(0);byte(0); // no transparent
-
-    // Image descriptor
-    byte(0x2c);
-    word(0);word(0);word(w);word(h);
-    byte(0); // no local color table
-
-    // LZW compressed image data
-    var lzw=lzwEncode(frames[f],8);
-    byte(8); // min code size
-    // write in 255-byte blocks
-    var pos=0;
-    while(pos<lzw.length){
-      var block=Math.min(255,lzw.length-pos);
-      byte(block);
-      for(var j=0;j<block;j++)byte(lzw[pos+j]);
-      pos+=block;
-    }
-    byte(0); // block terminator
-  }
-
-  byte(0x3b); // trailer
-  return new Uint8Array(out);
-}
-
-function lzwEncode(indices,minCodeSize){
-  var clearCode=1<<minCodeSize;
-  var eofCode=clearCode+1;
-  var codeSize=minCodeSize+1;
-  var nextCode=eofCode+1;
-  var table={};
-  var out=[];
-  var buf=0,bufBits=0;
-
-  function emit(code){
-    buf|=(code<<bufBits);
-    bufBits+=codeSize;
-    while(bufBits>=8){out.push(buf&0xff);buf>>=8;bufBits-=8;}
-  }
-  function resetTable(){
-    table={};
-    for(var i=0;i<clearCode;i++)table[''+i]=i;
-    nextCode=eofCode+1;codeSize=minCodeSize+1;
-  }
-
-  resetTable();
-  emit(clearCode);
-  var str2=''+indices[0];
-  for(var i=1;i<indices.length;i++){
-    var c=indices[i];
-    var s=str2+','+c;
-    if(table[s]!==undefined){
-      str2=s;
-    } else {
-      emit(table[str2]);
-      if(nextCode<4096){
-        table[s]=nextCode++;
-        if(nextCode>(1<<codeSize)&&codeSize<12)codeSize++;
-      } else {
-        emit(clearCode);
-        resetTable();
-      }
-      str2=''+c;
-    }
-  }
-  emit(table[str2]);
-  emit(eofCode);
-  if(bufBits>0)out.push(buf&0xff);
-  return out;
-}
 // ---- SHARE (URLエンコード方式) ----
 function shareDiff(){
   var before=document.getElementById('ta-before').value;
@@ -834,6 +661,18 @@ function shareDiff(){
 function copyShareUrl(){
   var input=document.getElementById('share-url-input');
   var btn=document.getElementById('share-copy-btn');
+  var text=input.value;
+  function done(){btn.textContent='コピー済み！';setTimeout(function(){btn.textContent='コピー';},2000);}
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(text).then(done);
+  }else{
+    input.select();try{document.execCommand('copy');}catch(e){}done();
+  }
+}
+
+function copyVideoUrl(){
+  var input=document.getElementById('video-share-url');
+  var btn=document.getElementById('video-copy-btn');
   var text=input.value;
   function done(){btn.textContent='コピー済み！';setTimeout(function(){btn.textContent='コピー';},2000);}
   if(navigator.clipboard&&window.isSecureContext){
